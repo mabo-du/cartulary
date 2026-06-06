@@ -19,6 +19,28 @@
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
+}
+
+/* Light parchment theme — toggle via .theme-light on body */
+.theme-light {
+  --bg: #f5f0eb;
+  --surface: #fffcf8;
+  --text: #2c241b;
+  --text-muted: #7a6f62;
+  --border: #d4c9bc;
+  --border-light: #e5dcd0;
+  --accent: #b86a3e;
+  --accent-hover: #9e582f;
+  --accent-light: #f0e6db;
+  --error: #b84f4f;
+  --error-bg: #fce8e8;
+  --warning: #b8860b;
+  --warning-bg: #fef3d5;
+  --success: #4a7c59;
+  --success-bg: #e5f0e8;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
 
   font: 16px/1.5 var(--sans);
   color: var(--text);
@@ -43,8 +65,15 @@ body {
 
 /* Header */
 .app-header {
-  text-align: center;
   margin-bottom: 24px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
+  gap: 16px;
 }
 
 .app-header h1 {
@@ -58,6 +87,26 @@ body {
   color: var(--text-muted);
   margin: 0;
   font-size: 1rem;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
 }
 
 /* Step indicator */

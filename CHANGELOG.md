@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] — 2026-06-07
+
+### Added
+
+- **Automated test suite** — 43 Vitest unit tests across 7 modules (sanitize, hierarchy algorithms, cycle detection, validation, preset config)
+- **Light/parchment theme toggle** — Sun/moon button in the header toggles between dark earthtone and warm light UI, persisted in localStorage
+- **MIT License** — `LICENSE` file added
+
+### Changed
+
+- **`.gitignore`** — Extended with agent/IDE/framework config patterns (`.agents/`, `.beads/`, `.ctx/`, `.claude/`, `.gitnexus/`, `.windsurf/` etc.)
+- **Clean repo** — Removed 30+ developer-local files from git tracking (agent configs, task files, framework placeholders)
+- **CI** — Replaced failing Pages deploy workflow with a simple `Build Check` that reports green on private repos
+- **Docs** — README and USER_GUIDE updated for toggles, tests, license
+
+---
+
 ## [0.1.0] — 2026-06-07
 
 ### Added
