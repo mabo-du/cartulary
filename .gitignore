@@ -1,13 +1,43 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 src-tauri/target/
+
+# OS files
+.DS_Store
 *.local
 .env
-.DS_Store
+
+# Logs
 *.log
+
+# Native binary artifacts (from Tauri releases)
 *.deb
 *.rpm
 *.AppImage
 *.dmg
 *.msi
 *.exe
+
+# Agent / IDE / framework config (developer-local, not project)
+.agents/
+.aidevops.json
+.beads/
+.ctx/
+.claude/
+.gitnexus/
+.windsurf/
+.superpowers/
+
+# Project-level agent config
+AGENTS.md
+CLAUDE.md
+TODO.md
+todo/
+
+# Framework scaffold placeholders
+schemas/
+seeds/
+migrations/
