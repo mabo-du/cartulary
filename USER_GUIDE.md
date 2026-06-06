@@ -44,6 +44,8 @@ Upload → Map → Validate & Export
 
 ---
 
+> **v0.1.0** — New: numbered `<c01>`–`<c12>` toggle, Cache & Carry import preset, Web Worker background parsing, and a Tauri desktop app.
+
 ## Quick Start
 
 1. Open Cartulary in your browser.
@@ -175,6 +177,37 @@ Every mapped field includes a hover tooltip (ⓘ icon) showing:
 - An example value
 
 **Required fields** (`unitid` and `unittitle` at minimum) are marked with a red badge. At least one of `unitid` or `unittitle` must be mapped for each row.
+
+### Numbered `<c>` Toggle
+
+Below the preset selector, there's a checkbox labelled **"Use numbered `<c01>`–`<c12>` elements"**:
+
+- **Unchecked** (default): Output uses generic `<c level="series">` elements
+- **Checked**: Output uses numbered `<c01>`–`<c12>` elements reflecting the depth level
+
+Both conventions are valid EAD3/EAD 2002 and are accepted by ArchivesSpace and AtoM. Some institutions or workflows prefer the numbered convention for its explicit depth indication.
+
+### Cache & Carry Import
+
+If you use **Cache & Carry** (the offline collections management system), check **"Cache & Carry field mapping"** to automatically pre-fill the column mappings for a Cache & Carry CSV export.
+
+The preset auto-maps these fields:
+
+| Cache & Carry Column | EAD Field |
+|---|---|
+| `accession_number` | `unitid` |
+| `object_name_aat_uri` | `unittitle` |
+| `type_of_object` | `unittitle` (fallback) |
+| `description` | `scopecontent` |
+| `materials_techniques` | `physdesc` |
+| `measurements` | `physdesc` (appended) |
+| `created_at` | `unitdate` |
+| `nagpra_flagged` | `accessrestrict` |
+| `secret_sacred_flag` | `accessrestrict` |
+| `exhibition_consent_granted` | `userestrict` |
+| `research_consent_granted` | `userestrict` |
+
+The hierarchy mode is also auto-detected from the columns present in the export (level column, dotted IDs, or `parent_id`).
 
 ### Composite Date Mapping
 
@@ -372,12 +405,22 @@ id: 3,   parent_id: 2        → child of 2
 
 **Format**: EAD 2002 (not EAD3)
 
+Cartulary includes a dedicated EAD 2002 serializer that maps all structural differences automatically:
+
+| EAD3 Element | EAD 2002 Equivalent |
+|---|---|
+| `<control>` | `<eadheader>` |
+| `<maintenancestatus>` | `@relatedencoding` attribute on `<eadheader>` |
+| `<languagedeclaration>` | `<langusage>` inside `<profiledesc>` |
+| `<maintenancehistory>` | `<creation>` element |
+| `<unitdatestructured>` | Flat `<unitdate>` string |
+| `<physdescstructured>` | Flat `<physdesc>` string |
+
 **Import quirks**:
 - ISO 8601 dates are strictly required, even for EAD 2002.
-- AtoM accepts both generic `<c>` and numbered `<c01>` component elements.
+- AtoM accepts both generic `<c>` and numbered `<c01>` component elements. Use the **numbered `<c>` toggle** if needed.
 - Extent format is a warning, not an error — AtoM is more permissive.
-- The EAD 2002 serializer maps `<control>` → `<eadheader>`, `<languagedeclaration>` → `<langusage>`, and other structural differences automatically.
-- AtoM defaults displayed descriptions to English if `<langusage>` is missing or unparseable. Cartulary populates this correctly.
+- AtoM defaults displayed descriptions to English if `<langusage>` is missing or unparseable. Cartulary populates this correctly from your control form data.
 
 ### CONTENTdm
 
@@ -397,7 +440,23 @@ No. Everything runs in your browser using JavaScript. The file is parsed locally
 
 **Q: Is there a row limit?**
 
-There is no hard limit, but very large files (>10,000 rows) may cause the browser tab to become unresponsive during parsing. This is temporary — processing is synchronous on the main thread. A Web Worker implementation for background parsing is planned but not yet implemented.
+There is no hard limit. Files over approximately 50 KB are automatically parsed in a **Web Worker** (background thread), keeping the UI responsive during processing. The main-thread parser is used as a fallback for smaller files or environments where Workers are unavailable.
+
+**Q: Can I run Cartulary as a desktop application?**
+
+Yes. Cartulary includes a **Tauri** desktop wrapper. To run it:
+
+```bash
+npm run tauri dev
+```
+
+To build a native binary for your platform:
+
+```bash
+npm run tauri build
+```
+
+Pre-built binaries for Linux, macOS (Intel + Apple Silicon), and Windows are available on the [Releases](https://github.com/mabo-du/cartulary/releases) page (once a version tag is pushed).
 
 **Q: Can I use this offline?**
 

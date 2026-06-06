@@ -1,0 +1,41 @@
+# Changelog
+
+All notable changes to Cartulary are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [0.1.0] — 2026-06-07
+
+### Added
+
+- **Three-step wizard** — Upload spreadsheet → Map columns → Validate & Export
+- **SheetJS parsing engine** — Supports .xlsx, .xls, .csv with merged-cell normalization, BOM detection, and codepage fallback
+- **Three hierarchy algorithms** — Level column (stack-based), dotted component IDs (prefix-based), explicit `parent_id` (adjacency list)
+- **EAD3 XML generation** — Full EAD3 output with correct namespace, strict `<control>` element ordering, and depth-first serialization
+- **EAD 2002 serializer** — Dedicated serializer for AtoM with `<eadheader>`, `<profiledesc>`, `<langusage>` mapping
+- **Rule-based validation** — 8 checks: required fields, ISO 8601 dates, chronological order, extent format, duplicate unitid, audience blocking
+- **Repository presets** — ArchivesSpace (EAD3), AtoM (EAD 2002), CONTENTdm placeholder
+- **Numbered `<c>` toggle** — Switch between generic `<c @level>` and numbered `<c01>`–`<c12>` output
+- **Cache & Carry preset** — One-click field mapping for Cache & Carry CSV export columns
+- **Web Worker parsing** — Files over 50 KB parsed in a background thread for responsive UI
+- **Tauri desktop wrapper** — Native Linux, macOS, and Windows app via Tauri v2
+- **Dark earthtone UI theme** — Warm archival palette (terracotta, parchment, deep charcoal)
+- **Field tooltips** — Hover tooltips showing EAD field name, DACS rule, description, and example
+- **Example spreadsheet** — Pre-populated .xlsx with 6–8 rows across all three hierarchy modes
+- **Composite date mapping** — Start date + end date + free-text expression → ISO 8601 `<unitdate>`
+- **GitHub Pages deployment workflow** — `.github/workflows/deploy.yml` (requires public repo or Pro plan)
+- **Cross-platform release workflow** — `.github/workflows/release.yml` — triggered by `v*` tags
+- **ARIA labels and keyboard support** — Accessible form controls and tooltip triggers
+- **CI/CD** — TypeScript compilation + Vite production build on every push
+
+### Technical
+
+- TypeScript 6.0 with strict mode, Vite 8 for bundling
+- 7 code-split production chunks (25 KB initial load, heavy libs lazy-loaded)
+- SheetJS (xlsx) for parsing, xmlbuilder2 for XML generation
+- Iterative (non-recursive) DFS for tree traversal
+- Nokogiri ampersand sanitization for ArchivesSpace compatibility
+- Phase 0 confirmed: EAD3 namespace via LoC XSD, generic `<c>` as ArchivesSpace default

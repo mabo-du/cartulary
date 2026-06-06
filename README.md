@@ -14,6 +14,10 @@ A private, client-side tool that converts archival spreadsheets (`.xlsx`, `.xls`
 - **Composite date mapping** — Map start date + end date + date expression → ISO 8601 `<unitdate>`
 - **Built-in validation** — 8 rule checks with row-referenced errors (required fields, ISO dates, extent format, duplicates, chronology, more)
 - **Example template** — Pre-populated spreadsheet with sample data for all three hierarchy modes
+- **Numbered `<c>` toggle** — Switch between generic `<c @level>` and numbered `<c01>`–`<c12>` output
+- **Cache & Carry import** — One-click field mapping for Cache & Carry CSV exports
+- **Web Worker parsing** — Large files (>50 KB) parsed in a background thread — UI stays responsive
+- **Desktop app** — Tauri wrapper for native Linux, macOS, and Windows builds
 - **Zero server** — All processing happens in the browser. No data storage, no accounts, no telemetry
 
 ---
@@ -21,11 +25,12 @@ A private, client-side tool that converts archival spreadsheets (`.xlsx`, `.xls`
 ## Tech Stack
 
 | Layer | Choice |
-|---|---|
+|---|---|---|
 | Language | TypeScript 6.0 |
 | Bundler | Vite 8 |
 | Spreadsheet parsing | SheetJS (xlsx) 0.18 |
 | XML generation | xmlbuilder2 4.0 |
+| Desktop wrapper | Tauri 2 |
 | Hosting | GitHub Pages (static site) |
 | Dev server port | 50001 |
 
@@ -90,6 +95,9 @@ cartulary/
 ├── public/
 │   ├── 404.html               # SPA redirect for GitHub Pages
 │   └── example-finding-aid.xlsx  # Example spreadsheet download
+├── public/
+│   ├── 404.html               # SPA redirect for GitHub Pages
+│   └── example-finding-aid.xlsx  # Example spreadsheet download
 ├── src/
 │   ├── main.ts                 # Entry point
 │   ├── style.css               # Application styles (dark earthtone)
@@ -98,6 +106,7 @@ cartulary/
 │   ├── lib/
 │   │   ├── parser/
 │   │   │   ├── spreadsheet.ts  # SheetJS parsing + merged cell normalization
+│   │   │   ├── parse-worker.ts # Web Worker for background parsing
 │   │   │   ├── preview.ts      # 25-row preview slice
 │   │   │   └── encoding.ts     # BOM prepend + codepage fallback
 │   │   ├── hierarchy/
@@ -108,6 +117,7 @@ cartulary/
 │   │   │   └── cycle-detect.ts # Iterative DFS cycle detection
 │   │   ├── generator/
 │   │   │   ├── ead3.ts         # EAD3 XML generation with xmlbuilder2
+│   │   │   ├── ead2002.ts      # EAD 2002 serializer (AtoM)
 │   │   │   └── sanitize.ts     # Nokogiri ampersand workaround
 │   │   ├── validator/
 │   │   │   └── rules.ts        # 8 validation rules with row references
@@ -119,13 +129,20 @@ cartulary/
 │       ├── step-upload.ts      # Step 1: Upload + preview
 │       ├── step-map.ts         # Step 2: Column mapper + control form
 │       └── step-export.ts      # Step 3: Validation + export
+├── src-tauri/
+│   ├── Cargo.toml              # Rust dependencies
+│   ├── tauri.conf.json         # Desktop window configuration
+│   └── src/
+│       ├── main.rs             # Tauri entry point
+│       └── lib.rs              # Tauri plugin setup
 ├── docs/
 │   ├── Scope.md                # Project scope document
 │   ├── research-papers/        # 4 deep-research papers on EAD3
 │   ├── research-prompts/       # Research prompts that generated the papers
 │   └── superpowers/specs/      # Design specification
 ├── .github/workflows/
-│   └── deploy.yml              # GitHub Actions deployment
+│   ├── deploy.yml              # GitHub Pages deployment
+│   └── release.yml             # Cross-platform release builds
 ├── scripts/
 │   └── generate-example.ts     # Example spreadsheet generator
 ├── vite.config.ts
@@ -138,8 +155,11 @@ cartulary/
 ```
 [.xlsx / .csv File]
         │
+        ├── [<50 KB] → parseSpreadsheet() — main thread
+        └── [≥50 KB] → Web Worker — background thread
+        │
         ▼
-  parseSpreadsheet() ──── getPreviewSlice() ───► Step 1 Preview Table
+  getPreviewSlice() ────► Step 1 Preview Table
         │
         ▼
   [JSON rows with __rowNum__]
@@ -150,7 +170,9 @@ cartulary/
         ▼
   [EADNode Tree] ──── detectCycles()
         │
-        ├──► generateEAD3() ────► [EAD3 XML file]
+        ├──► [ArchivesSpace] ──► generateEAD3() ──► [EAD3 XML]
+        │
+        ├──► [AtoM] ──────────► generateEAD2002() ──► [EAD 2002 XML]
         │
         └──► validateTree() ────► ValidationError[]
                   │
@@ -171,10 +193,12 @@ cartulary/
 ## Available Scripts
 
 | Command | Description |
-|---|---|
+|---|---|---|
 | `npm run dev` | Start Vite dev server on port 50001 |
 | `npm run build` | TypeScript check + production build to `dist/` |
 | `npm run preview` | Preview production build locally |
+| `npm run tauri dev` | Launch Tauri desktop app in development mode |
+| `npm run tauri build` | Build native desktop binary for current platform |
 | `npx tsx scripts/generate-example.ts` | Regenerate the example spreadsheet |
 
 ---
@@ -251,6 +275,52 @@ npm run build
 
 ---
 
+## Desktop App (Tauri)
+
+Cartulary includes a Tauri v2 desktop wrapper for native Linux, macOS, and Windows builds.
+
+### Prerequisites
+
+- **Rust** — Install via [rustup](https://rustup.rs/)
+- **Linux**: `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev`
+
+### Development
+
+```bash
+npm run tauri dev
+```
+
+This starts the Vite dev server and opens a native window pointing at it.
+
+### Production Build
+
+```bash
+npm run tauri build
+```
+
+Output goes to `src-tauri/target/release/` — a native binary for your current platform.
+
+### Cross-Platform Releases
+
+Push a `v*` tag to trigger the release workflow (`.github/workflows/release.yml`):
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This produces:
+
+| Asset | Platform |
+|---|---|
+| `cartulary-linux-amd64` | Linux x86_64 |
+| `cartulary-macos-amd64` | Intel Mac |
+| `cartulary-macos-arm64` | Apple Silicon |
+| `cartulary-windows-amd64.exe` | Windows x86_64 |
+| `cartulary-web.zip` | Browser version (any platform) |
+
+---
+
 ## Environment Variables
 
 None. Cartulary has no backend, no API keys, no configuration beyond what's in `vite.config.ts`.
@@ -271,6 +341,9 @@ None. Cartulary has no backend, no API keys, no configuration beyond what's in `
 | SheetJS can't parse file | Encoding or format issue | Try CSV export from spreadsheet app, or use the example template |
 | Drop zone doesn't respond | JavaScript error in console | Check browser console, file an issue |
 | `npm run dev` fails on port 50001 | Port in use | Change the port in `vite.config.ts` |
+| Web Worker parse fails silently | Browser doesn't support Workers | Falls back to main-thread parsing automatically |
+| Tauri build fails | Missing Rust or system deps | Install Rust + `libwebkit2gtk-4.1-dev` on Linux |
+| Cache & Carry import not mapping | Column names don't match expected fields | Check your CSV export columns; mapping uses case-insensitive partial matching |
 
 ---
 
