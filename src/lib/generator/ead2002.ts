@@ -1,85 +1,123 @@
-/** ead2002.ts — EAD 2002 XML document generator for AtoM.
+/** ead2002.ts — EAD 2002 XML document generator for AtoM and CONTENTdm.
  *
- * AtoM does not support EAD3 natively (confirmed via Artefactual Systems
- * mailing list). This serializer produces EAD 2002 output with the correct
- * namespace, element mapping, and structural conventions for AtoM import.
- *
- * Key mappings (EAD3 → EAD 2002):
- *   <control>           → <eadheader>
- *   <maintenancestatus> → @relatedencoding on <eadheader>
- *   <languagedeclaration> → <langusage> inside <profiledesc>
- *   <unitdatestructured>  → flat <unitdate> string
- *   <physdescstructured>  → flat <physdesc> string
+ * Key research-backed behaviours:
+ *   - AtoM accepts both generic <c> and numbered <c01> (generic is fine with @level)
+ *   - CONTENTdm REQUIRES numbered <c01>–<c12> and strict component convention
+ *   - AtoM needs @relatedencoding="ISAD(G)v2" on <eadheader>
+ *   - CONTENTdm crashes on inline namespace declarations — strips xmlns: prefixes
+ *   - AtoM needs @datechar="creation" on <unitdate>
+ *   - Both need ampersand + control character sanitization
+ *   - xsi:schemaLocation should be suppressible (AtoM can fail on remote DTD fetch)
  *
  * exports:
  *   generateEAD2002(tree, preset, control): string
  *
- * used_by: ui/step-export.ts → preset dispatch
- * agent:   deepseek-v4-flash | 2026-06-07 | Implemented EAD 2002 serializer
+ * used_by: ui/wizard.ts → preset dispatch
+ * agent:   deepseek-v4-flash | 2026-06-07 | Research-backed rewrite for AtoM + CONTENTdm
  */
 
 import { create } from 'xmlbuilder2';
 import type { EADNode, PresetConfig, ControlFormData } from '../../types';
 import { sanitize } from './sanitize';
-import { getPreset } from '../presets/config';
 
 const EAD2002_NS = 'urn:isbn:1-931666-22-9';
 const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
+const LOC_EAD_XSD = 'http://www.loc.gov/ead/ead.xsd';
 
 const ISO_NOW = new Date().toISOString();
 
 /**
- * Generate a complete EAD 2002 XML document for AtoM import.
+ * Generate a complete EAD 2002 XML document for AtoM or CONTENTdm.
  */
 export function generateEAD2002(
   tree: EADNode[],
   preset: PresetConfig,
   control: ControlFormData,
 ): string {
-  const config = getPreset(preset.name);
+  const config = preset;
   const convention = config.componentConvention;
+  const strictConvention = config.strictComponentConvention ?? false;
+  const includeSchemaLocation = !config.suppressSchemaLocation;
+  const stripNamespaces = config.removeNamespaceDeclarations ?? false;
 
-  const doc = create({
+  // Root <ead> — conditionally omit xsi:schemaLocation for AtoM
+  const builder = create({
     version: '1.0',
     encoding: 'UTF-8',
     defaultNamespace: { ele: EAD2002_NS },
-  })
-    .ele(EAD2002_NS, 'ead')
-    .att(XSI_NS, 'xsi:schemaLocation', `${EAD2002_NS} http://www.loc.gov/ead/ead3flat.xsd`)
-    .att('audience', 'external');
+  });
 
-  // ----- <eadheader> (replaces EAD3 <control>) -----
-  const eadheader = doc.ele('eadheader')
-    .att('relatedencoding', 'dc'); // AtoM expects this attribute
+  const ead = builder
+    .ele(EAD2002_NS, 'ead');
+
+  if (!stripNamespaces) {
+    ead.att(XSI_NS, 'xmlns:xsi', XSI_NS);
+  }
+
+  if (includeSchemaLocation) {
+    if (stripNamespaces) {
+      // For CONTENTdm: no inline namespace declarations at all
+      // Skip schemaLocation
+    } else {
+      ead.att(XSI_NS, 'xsi:schemaLocation', `${EAD2002_NS} ${LOC_EAD_XSD}`);
+    }
+  }
+
+  ead.att('audience', 'external');
+
+  // ----- <eadheader> -----
+  const eadheader = ead.ele('eadheader');
+
+  // @relatedencoding signals the internal crosswalk (AtoM)
+  if (config.relatedEncoding) {
+    eadheader.att('relatedencoding', config.relatedEncoding);
+  }
 
   // <eadid>
-  eadheader.ele('eadid').txt(control.recordId);
+  eadheader.ele('eadid').txt(control.recordId || sanitize(control.findingAidTitle));
 
   // <filedesc> → <titlestmt> → <titleproper>
   const filedesc = eadheader.ele('filedesc');
-  filedesc.ele('titlestmt').ele('titleproper').txt(sanitize(control.findingAidTitle));
+  const titlestmt = filedesc.ele('titlestmt');
+  titlestmt.ele('titleproper').txt(sanitize(control.findingAidTitle));
 
-  // <profiledesc> → <langusage> (AtoM defaults to English if missing)
+  // <profiledesc> → <langusage>
   const profiledesc = eadheader.ele('profiledesc');
   const langusage = profiledesc.ele('langusage');
   langusage.ele('language').att('langcode', control.languageCode);
 
-  // <creation> → agency + date
+  // <creation> within profiledesc
   const creation = profiledesc.ele('creation');
   creation.ele('date', ISO_NOW);
-  creation.ele('author').txt(sanitize(control.agencyName));
+  creation.ele('author').txt(sanitize(control.agencyName || 'Cartulary XML Generator'));
 
   // ----- <archdesc> block -----
   const rootLevel = tree.length === 1 ? tree[0].level : 'collection';
-  const archdesc = doc.ele('archdesc').att('level', rootLevel);
+  const archdesc = ead.ele('archdesc').att('level', rootLevel);
 
-  // Root <did>
+  // Root-level <did> (only if tree has a single root — otherwise we need to synthesize)
   const rootDid = archdesc.ele('did');
   if (tree.length === 1) {
     const m = tree[0].metadata;
     if (m.unitid) rootDid.ele('unitid').txt(sanitize(String(m.unitid)));
     if (m.unittitle) rootDid.ele('unittitle').txt(sanitize(String(m.unittitle)));
-    if (m.unitdate) rootDid.ele('unitdate').txt(sanitize(String(m.unitdate)));
+    if (m.unitdate) {
+      const ud = rootDid.ele('unitdate');
+      // AtoM expects @datechar for chronological classification
+      ud.att('datechar', 'creation');
+      // Add @normal for ISO 8601 date indexing
+      const normal = buildNormalDate(m);
+      if (normal) ud.att('normal', normal);
+      ud.txt(sanitize(String(m.unitdate)));
+    }
+  }
+
+  // <scopecontent> at archdesc level
+  if (tree.length === 1) {
+    const m = tree[0].metadata;
+    if (m.scopecontent) {
+      archdesc.ele('scopecontent').ele('p').txt(sanitize(String(m.scopecontent)));
+    }
   }
 
   // <dsc> with component tree
@@ -92,44 +130,75 @@ export function generateEAD2002(
 
   while (stack.length > 0) {
     const { node, parent } = stack.pop()!;
-    const cEl = createComponentEAD2002(parent, node, convention);
+    const cEl = createComponent(node, parent, convention, strictConvention, stripNamespaces);
 
     for (let i = node.children.length - 1; i >= 0; i--) {
       stack.push({ node: node.children[i], parent: cEl });
     }
   }
 
-  return doc.end({ prettyPrint: true, indent: '  ', newline: '\n' });
+  return builder.end({ prettyPrint: true, indent: '  ', newline: '\n' });
 }
 
 /**
- * Create a <c @level="..."> component with EAD 2002 <did> content.
+ * Create a <c @level="..."> or <c01> component with full EAD 2002 <did> content.
  */
-function createComponentEAD2002(
-  parent: any,
+function createComponent(
   node: EADNode,
+  parent: any,
   convention: PresetConfig['componentConvention'],
+  strictConvention: boolean,
+  stripNamespaces: boolean,
 ): any {
-  const tagName = convention === 'numbered-c'
-    ? numberedTagName(node)
-    : 'c';
+  const tagName = convention === 'numbered-c' ? numberedTag(node) : 'c';
+  const attrs: Record<string, string> = {};
 
-  const cEl = convention === 'numbered-c'
-    ? parent.ele(tagName)
-    : parent.ele(tagName, { level: node.level || 'otherlevel' });
+  if (convention === 'generic-c' || tagName === 'c') {
+    attrs.level = node.level || 'otherlevel';
+  } else if (strictConvention) {
+    // Numbered tags still need @level for semantic clarity
+    attrs.level = node.level || 'otherlevel';
+  }
 
+  const cEl = parent.ele(tagName, attrs);
+
+  // <did> block
   const did = cEl.ele('did');
   const m = node.metadata;
 
   if (m.unitid) did.ele('unitid').txt(sanitize(String(m.unitid)));
   if (m.unittitle) did.ele('unittitle').txt(sanitize(String(m.unittitle)));
-  if (m.unitdate) did.ele('unitdate').txt(sanitize(String(m.unitdate)));
-  if (m.physdesc) {
-    did.ele('physdesc').txt(sanitize(String(m.physdesc)));
+  if (m.unitdate) {
+    const ud = did.ele('unitdate');
+    ud.att('datechar', 'creation');
+    const normal = buildNormalDate(m);
+    if (normal) ud.att('normal', normal);
+    ud.txt(sanitize(String(m.unitdate)));
+  }
+  if (m.physdesc) did.ele('physdesc').txt(sanitize(String(m.physdesc)));
+
+  // <dao> for digital objects — strip namespace prefixes for CONTENTdm
+  if (m.dao_href) {
+    const href = String(m.dao_href);
+    const title = m.dao_title ? String(m.dao_title) : 'View digital object';
+    const role = m.dao_role ? String(m.dao_role) : 'use original';
+
+    if (stripNamespaces) {
+      // CONTENTdm: bare attributes, no xlink: prefix
+      cEl.ele('dao')
+        .att('href', href)
+        .att('title', sanitize(title))
+        .att('role', role);
+    } else {
+      cEl.ele('dao')
+        .att('xlink:href', href)
+        .att('xlink:title', sanitize(title))
+        .att('xlink:role', role)
+        .att('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    }
   }
 
-  // Optional non-did children (EAD 2002 uses <scopecontent>, <bioghist>, etc.
-  // directly as siblings of <did>, same as EAD3)
+  // Optional non-did children
   if (m.scopecontent)
     cEl.ele('scopecontent').ele('p').txt(sanitize(String(m.scopecontent)));
   if (m.accessrestrict)
@@ -144,12 +213,33 @@ function createComponentEAD2002(
   return cEl;
 }
 
-function numberedTagName(node: EADNode): string {
-  const depthMap: Record<string, number> = {
-    collection: 1, recordgrp: 1, fonds: 1,
-    series: 2, subseries: 3, subfonds: 3,
-    file: 4, item: 5,
+function numberedTag(node: EADNode): string {
+  const depth: Record<string, number> = {
+    collection: 1, recordgrp: 1, fonds: 1, series: 2,
+    subseries: 3, subfonds: 3, file: 4, item: 5,
   };
-  const num = Math.min(Math.max(depthMap[node.level.toLowerCase()] ?? 3, 1), 12);
+  const num = Math.min(Math.max(depth[node.level.toLowerCase()] ?? 3, 1), 12);
   return `c${String(num).padStart(2, '0')}`;
+}
+
+/**
+ * Build the ISO 8601 @normal date string from metadata.
+ * Prefers structured date fields over raw unitdate.
+ */
+function buildNormalDate(m: Record<string, unknown>): string | null {
+  const start = m.startDate ? String(m.startDate) : null;
+  const end = m.endDate ? String(m.endDate) : null;
+
+  if (start && end) return `${start}/${end}`;
+  if (start) return start;
+  if (end) return end;
+
+  // Try to extract from unitdate if it matches ISO
+  if (m.unitdate) {
+    const raw = String(m.unitdate);
+    const isoMatch = raw.match(/^\d{4}(-\d{2}(-\d{2})?)?(\/\d{4}(-\d{2}(-\d{2})?)?)?$/);
+    if (isoMatch) return raw;
+  }
+
+  return null;
 }

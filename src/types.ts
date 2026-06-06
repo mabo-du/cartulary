@@ -62,6 +62,21 @@ export interface PresetConfig {
   };
   nokogiriSanitize: boolean;
   requiresTitleOnDao: boolean;
+  /** CONTENTdm: strip xmlns:xlink and other inline namespace declarations
+   * from <dao> and other elements before export. Without this, the
+   * Project Client parser throws a fatal error on import.
+   * Source: OCLC docs: "If namespace information is encoded within the
+   * tags, the EAD processing will fail." */
+  removeNamespaceDeclarations?: boolean;
+  /** AtoM: suppress xsi:schemaLocation from root <ead> element.
+   * AtoM's PHP DOMDocument attempts to fetch the remote schema, which
+   * can timeout or be blocked by network restrictions.
+   * Source: AtoM community: "Steady EAD import error: no DTD found!" */
+  suppressSchemaLocation?: boolean;
+  /** AtoM: the @relatedencoding attribute value for <eadheader>.
+   * Defaults to "ISAD(G)v2" which triggers the correct crosswalk.
+   * Source: AtoM QubitXmlImport.class.php source code. */
+  relatedEncoding?: string;
 }
 
 export interface ControlFormData {

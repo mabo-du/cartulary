@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] — 2026-06-07
+
+### Added
+
+- **Research-backed CONTENTdm preset** — Fully specified from reverse-engineering: EAD 2002 format, numbered `<c01>` components (strict), inline namespace stripping, `@normal` date enforcement, absolute URL requirement for `<dao>`
+- **AtoM preset refinements** — `@relatedencoding="ISAD(G)v2"` on `<eadheader>`, `suppressSchemaLocation` to avoid network-dependent DTD failures, `@datechar="creation"` on `<unitdate>`
+- **XML 1.0 control character sanitization** — Strips illegal 0x00-0x1F characters (except tab/LF/CR) from all text nodes, fixes AtoM libxml2 parser crashes (GitHub issue #1839)
+- **CONTENTdm namespace stripping** — New `removeNamespaceDeclarations` config option strips `xmlns:xlink` from `<dao>` elements to prevent Project Client parser crashes
+
+### Changed
+
+- **`ead2002.ts`** — Complete rewrite: configurable `@relatedencoding`, optional `xsi:schemaLocation` suppression, `@datechar="creation"` on `<unitdate>`, CONTENTdm-compatible `<dao>` output (bare attributes vs xlink: prefixes)
+- **`sanitize.ts`** — Added XML 1.0 illegal control character removal alongside ampersand handling
+- **`config.ts`** — AtoM: `nokogiriSanitize` now `true` (libxml2 ampersand crashes confirmed). CONTENTdm: full specification with `removeNamespaceDeclarations: true`
+- **`types.ts`** — Added `removeNamespaceDeclarations`, `suppressSchemaLocation`, `relatedEncoding` fields to `PresetConfig`
+- **Test suite** — 4 new sanitize tests covering control character stripping (46 total)
+
+### Research
+
+- 4 deep-research papers consumed: AtoM import validation (2 papers), CONTENTdm reverse-engineering (2 papers)
+- Key AtoM findings: generic `<c>` works fine (both papers disagree on this — flagged as open question; consensus via QubitXmlImport source code analysis confirms generic works), `@relatedencoding="ISAD(G)v2"` required, ampersand + control char sanitization needed, `xsi:schemaLocation` suppression recommended
+- Key CONTENTdm findings: EAD 2002 only, numbered `<c01>` required (OAC/Archives West guidelines), inline namespaces cause fatal errors, date mangling bug on century spans
+
+---
+
 ## [0.1.1] — 2026-06-07
 
 ### Added

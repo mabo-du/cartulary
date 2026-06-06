@@ -30,4 +30,21 @@ describe('sanitize', () => {
     expect(sanitize(null as unknown as string)).toBe(null);
     expect(sanitize(undefined as unknown as string)).toBe(undefined);
   });
+
+  it('strips XML 1.0 illegal control characters', () => {
+    // 0x01 (SOH), 0x02 (STX), 0x1F (US) — all illegal in XML 1.0
+    const input = '\x01Hello\x02World\x1F';
+    expect(sanitize(input)).toBe('HelloWorld');
+  });
+
+  it('preserves XML 1.0 permitted control characters', () => {
+    // Tab (0x09), LF (0x0A), CR (0x0D) are permitted
+    const input = 'Line1\nLine2\rLine3\tIndented';
+    expect(sanitize(input)).toBe('Line1\nLine2\rLine3\tIndented');
+  });
+
+  it('combines ampersand fix with control char stripping', () => {
+    const input = '\x00A&B\x01';
+    expect(sanitize(input)).toBe('A& B');
+  });
 });
