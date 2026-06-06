@@ -158,6 +158,27 @@ function bindStep2Actions(): void {
     });
   }
 
+  // Numbered <c> toggle
+  const numberedToggle = document.getElementById('numbered-cs-toggle') as HTMLInputElement;
+  if (numberedToggle) {
+    numberedToggle.addEventListener('change', () => {
+      const state = getState();
+      updateState({
+        mappings: { ...state.mappings, _numberedCs: numberedToggle.checked ? 'true' : '' },
+      });
+    });
+  }
+
+  // Cache & Carry preset button
+  const ccBtn = document.getElementById('cache-and-carry-preset') as HTMLInputElement;
+  if (ccBtn) {
+    ccBtn.addEventListener('change', () => {
+      if (ccBtn.checked) {
+        applyCacheAndCarryMapping();
+      }
+    });
+  }
+
   // "Next: Validate & Export" button
   const nextBtn = document.getElementById('step2-next');
   if (nextBtn) {
@@ -217,9 +238,22 @@ function bindStep3Actions(): void {
         return;
       }
 
-      // Generate XML
-      const { generateEAD3 } = await import('../lib/generator/ead3');
-      const xml = generateEAD3(trees, state.preset, state.controlData);
+      // Determine component convention from toggle
+      const numberedCs = state.mappings['_numberedCs'] === 'true';
+      const presetWithConvention = {
+        ...state.preset,
+        componentConvention: numberedCs ? 'numbered-c' as const : 'generic-c' as const,
+      };
+
+      // Generate XML — dispatch to correct serializer per preset
+      let xml: string;
+      if (state.presetName === 'atom') {
+        const { generateEAD2002 } = await import('../lib/generator/ead2002');
+        xml = generateEAD2002(trees, presetWithConvention, state.controlData);
+      } else {
+        const { generateEAD3 } = await import('../lib/generator/ead3');
+        xml = generateEAD3(trees, presetWithConvention, state.controlData);
+      }
 
       // Trigger download
       downloadXml(xml, `${state.controlData.recordId || 'finding-aid'}.xml`);
@@ -253,17 +287,38 @@ async function handleFileUpload(file: File): Promise<void> {
     content.innerHTML = `<p class="processing">Parsing <strong>${file.name}</strong>...</p>`;
   }
 
+  // Yield to UI thread before starting potentially heavy parse
+  await new Promise((r) => setTimeout(r, 50));
+
   try {
-    const { parseSpreadsheet } = await import('../lib/parser/spreadsheet');
-    const rows = await parseSpreadsheet(file);
-    const columns =
-      rows.length > 0
+    let rows: Record<string, unknown>[];
+    let columns: string[];
+
+    // Try Web Worker for large files (>500 rows), fall back to main thread
+    if (file.size > 50_000 && typeof Worker !== 'undefined') {
+      try {
+        const result = await parseInWorker(file);
+        rows = result.rows;
+        columns = result.columns;
+      } catch {
+        // Worker failed — fall back to main-thread parsing
+        const { parseSpreadsheet } = await import('../lib/parser/spreadsheet');
+        rows = await parseSpreadsheet(file) as unknown as Record<string, unknown>[];
+        columns = rows.length > 0
+          ? Object.keys(rows[0]).filter((k) => k !== '__rowNum__')
+          : [];
+      }
+    } else {
+      const { parseSpreadsheet } = await import('../lib/parser/spreadsheet');
+      rows = await parseSpreadsheet(file) as unknown as Record<string, unknown>[];
+      columns = rows.length > 0
         ? Object.keys(rows[0]).filter((k) => k !== '__rowNum__')
         : [];
+    }
 
     updateState({
       fileName: file.name,
-      parsedRows: rows,
+      parsedRows: rows as any[],
       columns,
       currentStep: 2,
       mappings: {},
@@ -275,6 +330,80 @@ async function handleFileUpload(file: File): Promise<void> {
       content.innerHTML = `<p class="error">Failed to parse file: ${(err as Error).message}</p>`;
     }
   }
+}
+
+/** Parse a file in a Web Worker to keep the UI responsive. */
+function parseInWorker(
+  file: File,
+): Promise<{ rows: Record<string, unknown>[]; columns: string[] }> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(
+      new URL('../lib/parser/parse-worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+
+    worker.onmessage = (e: MessageEvent) => {
+      worker.terminate();
+      if (e.data.error) {
+        reject(new Error(e.data.error));
+      } else {
+        resolve(e.data);
+      }
+    };
+
+    worker.onerror = (err) => {
+      worker.terminate();
+      reject(err);
+    };
+
+    file.arrayBuffer().then((buffer) => {
+      worker.postMessage({ file: buffer, fileName: file.name }, [buffer]);
+    });
+  });
+}
+
+/** Pre-fill mappings for Cache & Carry CSV exports. */
+function applyCacheAndCarryMapping(): void {
+  const state = getState();
+  const cols = state.columns;
+  if (cols.length === 0) return;
+
+  // Cache & Carry field → EAD field mapping
+  const ccMapping: Record<string, string> = {
+    accession_number: 'unitid',
+    object_name_aat_uri: 'unittitle',
+    type_of_object: 'unittitle',
+    description: 'scopecontent',
+    materials_techniques: 'physdesc',
+    measurements: 'physdesc',
+    created_at: 'unitdate',
+    nagpra_flagged: 'accessrestrict',
+    secret_sacred_flag: 'accessrestrict',
+    exhibition_consent_granted: 'userestrict',
+    research_consent_granted: 'userestrict',
+  };
+
+  const mappings: Record<string, string | null> = {};
+
+  for (const [eadField, ccField] of Object.entries(ccMapping)) {
+    // Find the column that matches (case-insensitive, partial match)
+    const match = cols.find(
+      (c) => c.toLowerCase().includes(ccField.toLowerCase()),
+    );
+    mappings[eadField] = match || null;
+  }
+
+  // Auto-detect hierarchy mode from columns
+  const hasLevelCol = cols.some((c) => c.toLowerCase() === 'level');
+  const hasParentId = cols.some((c) => c.toLowerCase() === 'parent_id');
+  const hasDottedId = cols.some((c) => c.toLowerCase() === 'id' && !hasParentId);
+
+  let hierarchyMode = state.hierarchyMode;
+  if (hasParentId) hierarchyMode = 'parent-id';
+  else if (hasDottedId) hierarchyMode = 'dotted-ids';
+  else if (hasLevelCol) hierarchyMode = 'level-column';
+
+  updateState({ mappings, hierarchyMode });
 }
 
 function updatePreset(name: string): void {

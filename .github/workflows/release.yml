@@ -1,0 +1,131 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-web:
+    name: Build web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist/
+          retention-days: 7
+
+  release-web:
+    name: Package web release
+    needs: build-web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: cartulary-web
+      - run: |
+          cd cartulary-web
+          zip -r ../cartulary-web.zip .
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: cartulary-web.zip
+          generate_release_notes: true
+          make_latest: true
+
+  build-tauri:
+    name: Tauri (${{ matrix.os }})
+    needs: build-web
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: cartulary
+            asset_name: cartulary-linux-amd64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: cartulary
+            asset_name: cartulary-macos-amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: cartulary
+            asset_name: cartulary-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: cartulary.exe
+            asset_name: cartulary-windows-amd64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libssl-dev libgtk-3-dev libayatana-appindicator3-dev
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        run: npx tauri build --target ${{ matrix.target }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: src-tauri/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src-tauri/target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          generate_release_notes: false
+        if: startsWith(github.ref, 'refs/tags/v')
+
+  release-tauri-bundles:
+    name: Upload Tauri bundles
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cartulary-*
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            cartulary-linux-amd64
+            cartulary-macos-amd64
+            cartulary-macos-arm64
+            cartulary-windows-amd64.exe
+          generate_release_notes: false

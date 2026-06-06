@@ -75,6 +75,7 @@ export function renderStep2(state: AppState): string {
 }
 
 function renderPresetSelector(state: AppState): string {
+  const usingNumbered = state.mappings['_numberedCs'] === 'true';
   return `
     <div class="control-group">
       <label for="preset-select">Repository Preset</label>
@@ -83,6 +84,20 @@ function renderPresetSelector(state: AppState): string {
         <option value="atom" ${state.presetName === 'atom' ? 'selected' : ''}>AtoM (EAD 2002)</option>
         <option value="contentdm" ${state.presetName === 'contentdm' ? 'selected' : ''} disabled>CONTENTdm (Coming soon)</option>
       </select>
+    </div>
+    <div class="control-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="numbered-cs-toggle" ${usingNumbered ? 'checked' : ''} />
+        Use numbered <code>&lt;c01&gt;</code>–<code>&lt;c12&gt;</code> elements
+      </label>
+      <span class="field-desc">Off by default. ArchivesSpace and AtoM accept both conventions.</span>
+    </div>
+    <div class="control-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="cache-and-carry-preset" />
+        Cache &amp; Carry field mapping
+      </label>
+      <span class="field-desc">Pre-fills mappings for Cache &amp; Carry CSV exports.</span>
     </div>
   `;
 }
