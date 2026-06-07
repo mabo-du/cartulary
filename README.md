@@ -1,8 +1,8 @@
 # Cartulary
 
-**Spreadsheet → EAD3 XML Finding Aid Converter**
+**Spreadsheet → EAD3 / EAD 2002 XML Finding Aid Converter**
 
-A private, client-side tool that converts archival spreadsheets (`.xlsx`, `.xls`, `.csv`) into valid EAD3 XML finding aids for submission to institutional repositories. No server, no accounts, no data uploaded — everything runs in your browser.
+A private, client-side tool that converts archival spreadsheets (`.xlsx`, `.xls`, `.csv`) into valid EAD3 or EAD 2002 XML finding aids for submission to institutional repositories. No server, no accounts, no data uploaded — everything runs in your browser.
 
 ---
 
@@ -10,7 +10,7 @@ A private, client-side tool that converts archival spreadsheets (`.xlsx`, `.xls`
 
 - **Three-step wizard** — Upload your spreadsheet, map columns to EAD fields, validate and export
 - **Three hierarchy modes** — Level column, dotted component IDs, or explicit `parent_id` column
-- **Repository presets** — ArchivesSpace (EAD3), AtoM (EAD 2002), with CONTENTdm placeholder
+- **Repository presets** — ArchivesSpace (EAD3), AtoM (EAD 2002), CONTENTdm (EAD 2002, research-backed)
 - **Composite date mapping** — Map start date + end date + date expression → ISO 8601 `<unitdate>`
 - **Built-in validation** — 8 rule checks with row-referenced errors (required fields, ISO dates, extent format, duplicates, chronology, more)
 - **Example template** — Pre-populated spreadsheet with sample data for all three hierarchy modes
@@ -206,21 +206,24 @@ cartulary/
 ## Repository Presets
 
 | Preset | Format | Status |
-|---|---|---|
+|---|---|---|---|
 | ArchivesSpace | EAD3 | ✅ Complete |
-| AtoM (Access to Memory) | EAD 2002 | ✅ Complete (serializer scaffolded) |
-| CONTENTdm | EAD3 | 🔄 Placeholder — requires import profile research |
+| AtoM (Access to Memory) | EAD 2002 | ✅ Complete (research-optimised) |
+| CONTENTdm | EAD 2002 | ✅ Complete (research-backed profile) |
 
 ### Preset Differences
 
-| Rule | ArchivesSpace | AtoM |
-|---|---|---|
-| ISO 8601 dates | Error (strict) | Error (strict) |
-| Extent format (digit + space) | Error | Warning |
-| Chronological order | Error | Error |
-| `@audience="internal"` | Error (blocked) | Off |
-| Nokogiri ampersand sanitization | Active | Off |
-| Numbered `<c>` supported | Via config toggle | Via config toggle |
+| Rule | ArchivesSpace | AtoM | CONTENTdm |
+|---|---|---|---|---|
+| ISO 8601 dates | Error (strict) | Error (strict) | Error (date mangling bug) |
+| Extent format (digit + space) | Error | Warning | Warning |
+| Chronological order | Error | Error | Warning |
+| `@audience="internal"` | Error (blocked) | Off | Warning |
+| Nokogiri ampersand sanitization | Active | Active (libxml2 bug) | Off |
+| Component convention | Generic `<c>` (configurable) | Generic `<c>` (accepts both) | Numbered `<c01>` **required** |
+| Namespace stripping | Off | Off | **On** (`xmlns:xlink` kills parser) |
+| Schema location | Included | Suppressed (network DTD fails) | Included |
+| `@relatedencoding` | N/A | `ISAD(G)v2` | N/A |
 
 ---
 

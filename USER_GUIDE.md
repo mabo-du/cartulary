@@ -44,7 +44,7 @@ Upload → Map → Validate & Export
 
 ---
 
-> **v0.1.0** — New: numbered `<c01>`–`<c12>` toggle, Cache & Carry import preset, Web Worker background parsing, and a Tauri desktop app.
+> **v0.2.0** — Research-backed presets: CONTENTdm now fully specified, AtoM optimised with `@relatedencoding` and control character sanitization.
 
 ## Quick Start
 
@@ -417,14 +417,34 @@ Cartulary includes a dedicated EAD 2002 serializer that maps all structural diff
 | `<physdescstructured>` | Flat `<physdesc>` string |
 
 **Import quirks**:
-- ISO 8601 dates are strictly required, even for EAD 2002.
-- AtoM accepts both generic `<c>` and numbered `<c01>` component elements. Use the **numbered `<c>` toggle** if needed.
+- ISO 8601 dates are strictly required — the `@normal` attribute drives search indexing and timeline visualisers.
+- AtoM accepts both generic `<c>` and numbered `<c01>` component elements. The default is generic `<c>` with `@level` (source-code confirmed).
 - Extent format is a warning, not an error — AtoM is more permissive.
 - AtoM defaults displayed descriptions to English if `<langusage>` is missing or unparseable. Cartulary populates this correctly from your control form data.
+- **`@relatedencoding`**: Cartulary sets this to `ISAD(G)v2` on the `<eadheader>` — this triggers the correct ISAD(G) crosswalk in AtoM's import engine. Omission causes unpredictable field mapping.
+- **Control characters**: Bare ampersands and XML 1.0 illegal control characters cause fatal libxml2 parser crashes. Cartulary strips these automatically.
+- **Schema location**: The `xsi:schemaLocation` attribute is suppressed by default for AtoM. The PHP DOMDocument parser attempts to fetch the remote XSD from the Library of Congress, which can timeout or be blocked. Suppressing it avoids these failures.
 
 ### CONTENTdm
 
-**Status**: Coming soon. The import profile for CONTENTdm is not yet documented, and the preset is a placeholder in the UI.
+**Format**: EAD 2002 (not EAD3)
+
+**Critical requirements** (based on reverse-engineering research):
+
+| Requirement | Detail |
+|---|---|
+| Component convention | **Numbered `<c01>`–`<c12>` required.** Generic `<c>` fails. The Project Client creates one compound-object page per `<c01>`. OAC and Archives West consortial guidelines explicitly forbid generic `<c>`. |
+| Inline namespaces | **Must not appear.** The Project Client parser crashes fatally if `xmlns:xlink` or other namespace declarations appear inside tags. Cartulary strips them automatically. |
+| Date formatting | **Strict ISO 8601.** The Project Client has a date mangling bug that corrupts century-spanning ranges (e.g., `1898/1905` becomes `1898-01-05`). |
+| Digital objects | **Absolute URLs only.** Relative paths are silently dropped. `<dao>` attributes use bare `href="..."` not `xlink:href="..."`. |
+| Minimum fields | `<unitid>`, `<unittitle>`, `<unitdate>` with `@normal` attribute |
+| Encoding | UTF-8 only |
+| Audience attribute | Optional — not respected by the extraction pipeline |
+
+**Query regarding the <c> element convention's level vs numbered default:**
+The AtoM preset defaults to **generic `<c @level>`**. Research directly tested both conventions against AtoM's live import. One paper reported generic `<c>` failing; a deeper analysis of the actual `QubitXmlImport.class.php` source code confirmed the parser handles both conventions identically. If you encounter import issues, the numbered `<c>` toggle is available.
+
+The CONTENTdm preset defaults to **numbered `<c01>`** with strict enforcement. This is non-negotiable for CONTENTdm — generic `<c>` breaks compound object pagination.
 
 ---
 
