@@ -81,15 +81,16 @@ export function generateEAD2002(
   const titlestmt = filedesc.ele('titlestmt');
   titlestmt.ele('titleproper').txt(sanitize(control.findingAidTitle));
 
-  // <profiledesc> → <langusage>
+  // <profiledesc> — strict EAD 2002 element order: <creation>, <langusage>, <descrules>
   const profiledesc = eadheader.ele('profiledesc');
+
+  // <creation> — EAD 2002 allows only <date> inside <creation>
+  const creation = profiledesc.ele('creation');
+  creation.ele('date').txt(ISO_NOW);
+
+  // <langusage>
   const langusage = profiledesc.ele('langusage');
   langusage.ele('language').att('langcode', control.languageCode);
-
-  // <creation> within profiledesc
-  const creation = profiledesc.ele('creation');
-  creation.ele('date', ISO_NOW);
-  creation.ele('author').txt(sanitize(control.agencyName || 'Cartulary XML Generator'));
 
   // ----- <archdesc> block -----
   const rootLevel = tree.length === 1 ? tree[0].level : 'collection';
@@ -123,17 +124,18 @@ export function generateEAD2002(
   // <dsc> with component tree
   const dsc = archdesc.ele('dsc');
 
-  const stack: { node: EADNode; parent: any }[] = tree.map((n) => ({
+  const stack: { node: EADNode; parent: any; depth: number }[] = tree.map((n) => ({
     node: n,
     parent: dsc,
+    depth: 1,
   }));
 
   while (stack.length > 0) {
-    const { node, parent } = stack.pop()!;
-    const cEl = createComponent(node, parent, convention, strictConvention, stripNamespaces);
+    const { node, parent, depth } = stack.pop()!;
+    const cEl = createComponent(node, parent, convention, strictConvention, stripNamespaces, depth);
 
     for (let i = node.children.length - 1; i >= 0; i--) {
-      stack.push({ node: node.children[i], parent: cEl });
+      stack.push({ node: node.children[i], parent: cEl, depth: depth + 1 });
     }
   }
 
@@ -149,8 +151,9 @@ function createComponent(
   convention: PresetConfig['componentConvention'],
   strictConvention: boolean,
   stripNamespaces: boolean,
+  depth: number,
 ): any {
-  const tagName = convention === 'numbered-c' ? numberedTag(node) : 'c';
+  const tagName = convention === 'numbered-c' ? numberedTag(depth) : 'c';
   const attrs: Record<string, string> = {};
 
   if (convention === 'generic-c' || tagName === 'c') {
@@ -213,12 +216,8 @@ function createComponent(
   return cEl;
 }
 
-function numberedTag(node: EADNode): string {
-  const depth: Record<string, number> = {
-    collection: 1, recordgrp: 1, fonds: 1, series: 2,
-    subseries: 3, subfonds: 3, file: 4, item: 5,
-  };
-  const num = Math.min(Math.max(depth[node.level.toLowerCase()] ?? 3, 1), 12);
+function numberedTag(depth: number): string {
+  const num = Math.min(Math.max(depth, 1), 12);
   return `c${String(num).padStart(2, '0')}`;
 }
 

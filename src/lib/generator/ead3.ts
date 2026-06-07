@@ -15,7 +15,6 @@
 import { create } from 'xmlbuilder2';
 import type { EADNode, PresetConfig, ControlFormData } from '../../types';
 import { sanitize } from './sanitize';
-import { getPreset } from '../presets/config';
 
 const EAD3_NS = 'http://ead3.archivists.org/schema/';
 const XSI_NS = 'http://www.w3.org/2001/XMLSchema-instance';
@@ -31,8 +30,7 @@ export function generateEAD3(
   preset: PresetConfig,
   control: ControlFormData,
 ): string {
-  const config = getPreset(preset.name);
-  const convention = config.componentConvention;
+  const convention = preset.componentConvention;
 
   // Create root document with default namespace
   const doc = create({
@@ -80,22 +78,39 @@ export function generateEAD3(
   const rootLevel = tree.length === 1 ? tree[0].level : 'collection';
   const archdesc = doc.ele('archdesc').att('level', rootLevel);
 
-  // Serialize the tree into <dsc> → <c> components
+  // EAD3: <archdesc> requires <did> as first child, then <c> components
+  const rootDid = archdesc.ele('did');
+  if (tree.length === 1) {
+    const m = tree[0].metadata;
+    if (m.unitid) rootDid.ele('unitid').txt(sanitize(String(m.unitid)));
+    if (m.unittitle) rootDid.ele('unittitle').txt(sanitize(String(m.unittitle)));
+    if (m.unitdate) {
+      const ud = rootDid.ele('unitdate');
+      const start = m.startDate ? String(m.startDate) : null;
+      const end = m.endDate ? String(m.endDate) : null;
+      if (start && end) ud.att('normal', `${start}/${end}`);
+      ud.txt(sanitize(String(m.unitdate)));
+    }
+    if (m.physdesc) rootDid.ele('physdesc').txt(sanitize(String(m.physdesc)));
+  }
+  rootDid.up(); // close <did>
+
+  // EAD3: components go inside <dsc> wrapper
   const dsc = archdesc.ele('dsc');
 
-  // Iterative depth-first pre-order traversal
-  const stack: { node: EADNode; parent: any }[] = tree.map((n) => ({
+  // Iterative depth-first pre-order traversal with depth tracking
+  const stack: { node: EADNode; parent: any; depth: number }[] = tree.map((n) => ({
     node: n,
     parent: dsc,
+    depth: 1,
   }));
 
   while (stack.length > 0) {
-    const { node, parent } = stack.pop()!;
-    const cEl = createComponent(parent, node, convention);
+    const { node, parent, depth } = stack.pop()!;
+    const cEl = createComponent(parent, node, convention, depth);
 
-    // Push children in reverse so they're processed in original order
     for (let i = node.children.length - 1; i >= 0; i--) {
-      stack.push({ node: node.children[i], parent: cEl });
+      stack.push({ node: node.children[i], parent: cEl, depth: depth + 1 });
     }
   }
 
@@ -109,13 +124,12 @@ function createComponent(
   parent: any,
   node: EADNode,
   convention: PresetConfig['componentConvention'],
+  depth: number,
 ): any {
   const tagName =
     convention === 'numbered-c'
-      ? numberedTagName(node)
-      : EAD3_NS
-        ? 'c'
-        : 'c';
+      ? numberedTagName(depth)
+      : 'c';
 
   const cEl =
     convention === 'numbered-c'
@@ -129,10 +143,7 @@ function createComponent(
   if (m.unittitle) did.ele('unittitle').txt(sanitize(String(m.unittitle)));
   if (m.unitdate) buildUnitDate(did, m);
   if (m.physdesc) {
-    did
-      .ele('physdesc')
-      .ele('extent')
-      .txt(sanitize(String(m.physdesc)));
+    did.ele('physdesc').txt(sanitize(String(m.physdesc)));
   }
   did.up(); // close <did>
 
@@ -190,35 +201,10 @@ function buildUnitDate(did: any, metadata: Record<string, unknown>): void {
 }
 
 /**
- * Determine the numbered <c01>–<c12> tag based on tree depth.
- * Root nodes get <c01>, children of <c01> get <c02>, etc.
- * We approximate depth by checking the node's position in the tree.
- * Since we're doing iterative traversal, we pass depth via the stack.
- *
- * For simplicity, numbered tag is determined by counting ancestors.
- * The `node` object doesn't carry depth, so we use a numeric depth approach:
- * we compute it from the stack context. Since we're in a flat traversal,
- * we infer depth from metadata or default to <c01>.
+ * Numbered <c01>–<c12> tag based on nesting depth.
+ * Depth 1 → c01, depth 2 → c02, etc. Clamped to 1–12.
  */
-function numberedTagName(node: EADNode): string {
-  // Determine depth from metadata or default to c01
-  // In a real scenario, depth tracking would be passed through the stack.
-  // For now, use level rank to estimate depth.
-  const depth = estimateDepth(node.level);
+function numberedTagName(depth: number): string {
   const num = Math.min(Math.max(depth, 1), 12);
   return `c${String(num).padStart(2, '0')}`;
-}
-
-function estimateDepth(level: string): number {
-  const map: Record<string, number> = {
-    collection: 1,
-    recordgrp: 1,
-    fonds: 1,
-    series: 2,
-    subseries: 3,
-    subfonds: 3,
-    file: 4,
-    item: 5,
-  };
-  return map[level.toLowerCase()] ?? 3;
 }
