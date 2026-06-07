@@ -352,7 +352,7 @@ None. Cartulary has no backend, no API keys, no configuration beyond what's in `
 
 ## License
 
-Private — not yet open-sourced. All rights reserved.
+MIT — see [LICENSE](LICENSE) for the full text.
 
 ## Credits
 
