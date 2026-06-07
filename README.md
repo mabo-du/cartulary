@@ -206,10 +206,10 @@ cartulary/
 ## Repository Presets
 
 | Preset | Format | Status |
-|---|---|---|---|
-| ArchivesSpace | EAD3 | ✅ Complete |
-| AtoM (Access to Memory) | EAD 2002 | ✅ Complete (research-optimised) |
-| CONTENTdm | EAD 2002 | ✅ Complete (research-backed profile) |
+|---|---|---|---|---|
+| ArchivesSpace | EAD3 | ✅ Complete (live-tested) |
+| AtoM (Access to Memory) | EAD 2002 | ✅ Complete (live-tested against Docker instance) |
+| CONTENTdm | EAD 2002 | 🔲 Research-backed, awaiting live testing |
 
 ### Preset Differences
 
@@ -224,6 +224,8 @@ cartulary/
 | Namespace stripping | Off | Off | **On** (`xmlns:xlink` kills parser) |
 | Schema location | Included | Suppressed (network DTD fails) | Included |
 | `@relatedencoding` | N/A | `ISAD(G)v2` | N/A |
+
+> **CONTENTdm preset status:** The CONTENTdm configuration is based on two deep-research papers analysing OCLC documentation, OAC/Archives West consortial guidelines, and community experience. The generated XML validates against the Library of Congress EAD 2002 schema. However, it has **not been tested against a live CONTENTdm Project Client instance**, because no free trial or Docker image is currently available. The preset may need adjustment once tested in a real environment. If you have CONTENTdm access and can help validate, please open an issue or pull request.
 
 ---
 
