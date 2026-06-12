@@ -20,6 +20,7 @@ export interface ParentIdResult {
 export function buildTreeFromParentId(rows: ParsedRow[]): ParentIdResult {
   const errors: ParentIdResult['errors'] = [];
   const nodeMap = new Map<string, EADNode>();
+  const allNodes: EADNode[] = [];
 
   // Pass 1: create all nodes
   for (const row of rows) {
@@ -34,23 +35,25 @@ export function buildTreeFromParentId(rows: ParsedRow[]): ParentIdResult {
       children: [],
     };
 
+    allNodes.push(node);
+
     // Handle duplicate IDs
     if (nodeMap.has(id)) {
       errors.push({
         rowIndex: index,
         message: `Duplicate ID "${id}" — second occurrence treated as separate root`,
       });
+    } else {
+      nodeMap.set(id, node);
     }
-
-    nodeMap.set(id, node);
   }
 
   // Pass 2: resolve parent references
   const roots: EADNode[] = [];
 
-  for (const row of rows) {
-    const id = String(row.id ?? '');
-    const node = nodeMap.get(id)!;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const node = allNodes[i];
     const parentId = row.parent_id;
 
     if (parentId === undefined || parentId === null || parentId === '') {

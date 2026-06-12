@@ -39,7 +39,9 @@ export function buildTreeFromDottedIDs(rows: ParsedRow[]): DottedIdResult {
       children: [],
     };
 
-    nodeMap.set(id, node);
+    if (!nodeMap.has(id)) {
+      nodeMap.set(id, node);
+    }
 
     const lastDot = id.lastIndexOf('.');
     if (lastDot === -1) {

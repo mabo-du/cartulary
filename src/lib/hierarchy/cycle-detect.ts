@@ -14,27 +14,27 @@ import type { EADNode } from '../../types';
 
 export function detectCycles(roots: EADNode[]): string[] {
   const errors: string[] = [];
-  const visited = new Set<string>();
+  const visited = new Set<EADNode>();
 
-  const stack: { node: EADNode; path: Set<string> }[] = roots.map((n) => ({
+  const stack: { node: EADNode; path: Set<EADNode> }[] = roots.map((n) => ({
     node: n,
-    path: new Set([n.id]),
+    path: new Set([n]),
   }));
 
   while (stack.length > 0) {
     const { node, path } = stack.pop()!;
 
-    if (visited.has(node.id)) continue;
-    visited.add(node.id);
+    if (visited.has(node)) continue;
+    visited.add(node);
 
     for (const child of node.children) {
-      if (path.has(child.id)) {
+      if (path.has(child)) {
         errors.push(
           `Circular reference at row ${child.originalRowIndex} (ID: "${child.id}")`,
         );
       } else {
         const childPath = new Set(path);
-        childPath.add(child.id);
+        childPath.add(child);
         stack.push({ node: child, path: childPath });
       }
     }
