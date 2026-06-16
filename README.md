@@ -14,6 +14,8 @@ A private, client-side tool that converts archival spreadsheets (`.xlsx`, `.xls`
 - **Composite date mapping** — Map start date + end date + date expression → ISO 8601 `<unitdate>`
 - **Built-in validation** — 8 rule checks with row-referenced errors (required fields, ISO dates, extent format, duplicates, chronology, more)
 - **Example template** — Pre-populated spreadsheet with sample data for all three hierarchy modes
+- **Onboarding overlay** — First-visit welcome screen explains the workflow
+- **Feedback link** — Questions? Open an issue — linked from the app footer and help panel
 - **Numbered `<c>` toggle** — Switch between generic `<c @level>` and numbered `<c01>`–`<c12>` output
 - **Cache & Carry import** — One-click field mapping for Cache & Carry CSV exports
 - **Web Worker parsing** — Large files (>50 KB) parsed in a background thread — UI stays responsive

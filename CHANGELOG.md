@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.2.1] — 2026-06-12
+## [0.4.0] — 2026-06-07
+
+### Added
+
+- **Onboarding overlay** — First-visit welcome screen explaining the three-step wizard. Stored in localStorage, dismissible by button, click-outside, or Escape.
+- **Feedback link** — "👋 Questions? Open an issue" in the app footer and help panel footer. No personal email exposed.
+- **Questions & Feedback help topic** — New section in the help panel explaining how to reach out.
+- **CONTENTdm namespace stress tests** — 6 new tests covering `xmlns:xlink` stripping, multiple `<dao>` elements, expected XSD incompatibility documented.
+- **CONTENTdm structural comparison** — Institutional EAD comparison against Columbia University finding aid. Corrected earlier research assumption (Columbia is not CONTENTdm-hosted).
+- **CONTENTdm date validation tests** — Verified century-spanning ISO dates accepted, non-ISO dates flagged as errors.
+- **EAD 2002 DTD** — Downloaded for reference.
+
+### Changed
+
+- **Test suite** — 88 tests across 11 files (up from 70). All passing.
+- **README** — CONTENTdm preset status clearly flagged as research-backed, awaiting live testing. Call for contributors added.
+- **Repos set to public** — Both GitHub and GitLab now public.
+
+---
+
+## [0.3.0] — 2026-06-07
 
 ### Fixed
 
