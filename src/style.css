@@ -884,6 +884,130 @@ body.help-open {
   overflow: hidden;
 }
 
+/* Onboarding overlay */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease-out;
+}
+
+.onboarding-overlay[aria-hidden="false"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.onboarding-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.onboarding-card h2 {
+  margin: 0 0 6px;
+  font-size: 1.4rem;
+}
+
+.onboarding-sub {
+  color: var(--text-muted);
+  margin: 0 0 24px;
+  font-size: 0.9rem;
+}
+
+.onboarding-steps {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.onboarding-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.onboarding-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #f0e8d8;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.onboarding-step div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+
+.onboarding-step span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.onboarding-privacy {
+  font-size: 0.85rem;
+  color: var(--success);
+  margin: 0 0 16px;
+}
+
+body.onboarding-open {
+  overflow: hidden;
+}
+
+/* Help footer */
+.help-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.help-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.help-footer a:hover {
+  text-decoration: underline;
+}
+
+/* App footer feedback link */
+.footer-feedback {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+}
+
+.footer-feedback a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer-feedback a:hover {
+  text-decoration: underline;
+}
+
 /* Footer */
 .app-footer {
   text-align: center;

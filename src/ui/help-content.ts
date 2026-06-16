@@ -131,4 +131,12 @@ export const HELP_SECTIONS: Record<string, HelpSection> = {
       <p>Cartulary was named after a cartulary — a medieval manuscript register of charters and property records kept by monasteries. The oldest form of a finding aid.</p>
     `,
   },
+  feedback: {
+    title: 'Questions & Feedback',
+    content: `
+      <p>Have a question, found a bug, or want to suggest a feature?</p>
+      <p><a href="https://github.com/mabo-du/cartulary/issues/new">Open an issue on GitHub</a> — no account needed to browse, though you'll need one to post.</p>
+      <p>If you have CONTENTdm access and can help validate that preset, that would be especially valuable.</p>
+    `,
+  },
 };
